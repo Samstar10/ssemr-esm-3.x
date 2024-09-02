@@ -118,10 +118,7 @@ export const usePatientListing = () => {
 
     switch (selectedIndex) {
       case 0:
-        getAllClients({
-          currentPage: currentPaginationState.page,
-          pageSize: currentPaginationState.size,
-        });
+        getAllClients();
         break;
 
       case 1:
@@ -141,10 +138,7 @@ export const usePatientListing = () => {
         break;
 
       default:
-        getAllClients({
-          currentPage: currentPaginationState.page,
-          pageSize: currentPaginationState.size,
-        });
+        getAllClients();
     }
   };
 
@@ -175,15 +169,39 @@ export const usePatientListing = () => {
     }
   };
 
-  const getAllClients = async ({ currentPage, pageSize }) => {
-    try {
+  // const getAllClients = async ({ currentPage, pageSize }) => {
+  //   try {
+  //     if (currentPage === 0) setLoading(true);
+
+  //     const url = `/ws/rest/v1/ssemr/dashboard/allClients?startDate=${startDate}&endDate=${endDate}&page=${currentPage}&size=${pageSize}`;
+
+  //     const { data } = await openmrsFetch(url);
+  //     if (data?.results?.length > 0)
+  //       setTableData((prev) => [...prev, ...data.results]);
+
+  //     if (data?.results?.length === pageSize)
+  //       setCurrentPaginationState((prev) => ({
+  //         ...prev,
+  //         page: ++prev.page,
+  //       }));
+  //   } catch (e) {
+  //     return e;
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  const getPaginatedData = async ({ url, currentPage, pageSize, updateData }) => {
+    try{
       if (currentPage === 0) setLoading(true);
 
-      const url = `/ws/rest/v1/ssemr/dashboard/allClients?startDate=${startDate}&endDate=${endDate}&page=${currentPage}&size=${pageSize}`;
+      const paginatedUrl = `${url}&page=${currentPage}&size=${pageSize}`;
+      
+      const { data } = await openmrsFetch(paginatedUrl);
 
-      const { data } = await openmrsFetch(url);
-      if (data?.results?.length > 0)
-        setTableData((prev) => [...prev, ...data.results]);
+      if (data?.results?.length > 0) {
+        updateData((prev) => [...prev, ...data.results]);
+      }
 
       if (data?.results?.length === pageSize)
         setCurrentPaginationState((prev) => ({
@@ -196,6 +214,11 @@ export const usePatientListing = () => {
       setLoading(false);
     }
   };
+
+  const getAllClients = async () => {
+    const url = `/ws/rest/v1/ssemr/dashboard/allClients?startDate=${startDate}&endDate=${endDate}`;
+    await getPaginatedData({ url, currentPage: currentPaginationState.page, pageSize: currentPaginationState.size, updateData: setTableData });
+  }
 
   React.useEffect(() => {
     if (currentTab === 0) {
@@ -222,57 +245,71 @@ export const usePatientListing = () => {
       ]);
     }
     if (currentPaginationState.page > 0)
-      getAllClients({
-        currentPage: currentPaginationState.page,
-        pageSize: currentPaginationState.size,
-      });
+      getAllClients();
   }, [currentPaginationState, currentTab]);
 
-  const getActiveClients = async () =>
-    getChartData({
-      url: `/ws/rest/v1/ssemr/dashboard/activeClients?startDate=${startDate}&endDate=${endDate}`,
-      responseCallback: (data) => {
-        setTableData(data.results);
-        setTableHeaders(defaultTableHeaders);
-      },
-      errorCallBack: (error) => console.error(error),
-    });
+  // const getActiveClients = async () =>
+  //   getChartData({
+  //     url: `/ws/rest/v1/ssemr/dashboard/activeClients?startDate=${startDate}&endDate=${endDate}`,
+  //     responseCallback: (data) => {
+  //       setTableData(data.results);
+  //       setTableHeaders(defaultTableHeaders);
+  //     },
+  //     errorCallBack: (error) => console.error(error),
+  //   });
 
-  const getIIT = async () =>
-    getChartData({
-      url: `/ws/rest/v1/ssemr/dashboard/interruptedInTreatment?startDate=${startDate}&endDate=${endDate}`,
-      responseCallback: (data) => {
-        setTableData(data.results);
-        setTableHeaders(defaultTableHeaders);
-      },
-      errorCallBack: (error) => console.error(error),
-    });
+  const getActiveClients = async () => {
+    const url = `/ws/rest/v1/ssemr/dashboard/activeClients?startDate=${startDate}&endDate=${endDate}`;
+    await getPaginatedData({ url, currentPage: currentPaginationState.page, pageSize: currentPaginationState.size, updateData: setTableData });
+  }
 
-  const getTransferredOut = async () =>
-    getChartData({
-      url: `/ws/rest/v1/ssemr/dashboard/transferredOut?startDate=${startDate}&endDate=${endDate}`,
-      responseCallback: (data) => {
-        setTableData(data.results);
-        setTableHeaders(defaultTableHeaders);
-      },
-      errorCallBack: (error) => console.error(error),
-    });
+  // const getIIT = async () =>
+  //   getChartData({
+  //     url: `/ws/rest/v1/ssemr/dashboard/interruptedInTreatment?startDate=${startDate}&endDate=${endDate}`,
+  //     responseCallback: (data) => {
+  //       setTableData(data.results);
+  //       setTableHeaders(defaultTableHeaders);
+  //     },
+  //     errorCallBack: (error) => console.error(error),
+  //   });
 
-  const getDeceased = async () =>
-    getChartData({
-      url: `/ws/rest/v1/ssemr/dashboard/deceased?startDate=${startDate}&endDate=${endDate}`,
-      responseCallback: (data) => {
-        setTableData(data.results);
-        setTableHeaders(defaultTableHeaders);
-      },
-      errorCallBack: (error) => console.error(error),
-    });
+  const getIIT = async () => {
+    const url = `/ws/rest/v1/ssemr/dashboard/interruptedInTreatment?startDate=${startDate}&endDate=${endDate}`;
+    await getPaginatedData({ url, currentPage: currentPaginationState.page, pageSize: currentPaginationState.size, updateData: setTableData });
+  }
+
+  // const getTransferredOut = async () =>
+  //   getChartData({
+  //     url: `/ws/rest/v1/ssemr/dashboard/transferredOut?startDate=${startDate}&endDate=${endDate}`,
+  //     responseCallback: (data) => {
+  //       setTableData(data.results);
+  //       setTableHeaders(defaultTableHeaders);
+  //     },
+  //     errorCallBack: (error) => console.error(error),
+  //   });
+
+  const getTransferredOut = async () => {
+    const url = `/ws/rest/v1/ssemr/dashboard/transferredOut?startDate=${startDate}&endDate=${endDate}`;
+    await getPaginatedData({ url, currentPage: currentPaginationState.page, pageSize: currentPaginationState.size, updateData: setTableData });
+  }
+
+  // const getDeceased = async () =>
+  //   getChartData({
+  //     url: `/ws/rest/v1/ssemr/dashboard/deceased?startDate=${startDate}&endDate=${endDate}`,
+  //     responseCallback: (data) => {
+  //       setTableData(data.results);
+  //       setTableHeaders(defaultTableHeaders);
+  //     },
+  //     errorCallBack: (error) => console.error(error),
+  //   });
+
+  const getDeceased = async () => {
+    const url = `/ws/rest/v1/ssemr/dashboard/deceased?startDate=${startDate}&endDate=${endDate}`;
+    await getPaginatedData({ url, currentPage: currentPaginationState.page, pageSize: currentPaginationState.size, updateData: setTableData });
+  }
 
   React.useEffect(() => {
-    getAllClients({
-      currentPage: currentPaginationState.page,
-      pageSize: currentPaginationState.size,
-    });
+    getAllClients();
   }, []);
 
   React.useEffect(() => {
