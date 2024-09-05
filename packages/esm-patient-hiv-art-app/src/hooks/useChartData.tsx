@@ -6,6 +6,7 @@ import {
 } from "../helpers/dateOps";
 import Link from "@carbon/react/lib/components/UIShell/Link";
 import { TableCell, Tag } from "@carbon/react";
+import { activeClientData } from "../dummy/data";
 
 export const useChartData = () => {
   const filterOptions = [
@@ -139,11 +140,17 @@ export const useChartData = () => {
     filterOptions[0].value
   );
 
+  const [currentPaginationState, setCurrentPaginationState] = useState({
+    page: 0,
+    size: 15,
+  });
+
   const getChartData = async ({
     url,
     responseCallback,
     errorCallBack,
     chartKey,
+    append = false,
   }) => {
     try {
       setChartData((prev) => {
@@ -158,8 +165,35 @@ export const useChartData = () => {
         return obj;
       });
 
-      const response = await openmrsFetch(url);
-      responseCallback(response.data);
+      const response = await openmrsFetch(`${url}&page=${currentPaginationState.page}&size=${currentPaginationState.size}`);
+      const data = response?.data;
+
+      if (data && data.results && data.results.length > 0) {
+        responseCallback(data, append);
+
+        setCurrentPaginationState((prev) => ({
+          ...prev,
+          page: prev.page + 1,
+        }))
+
+        if (data.results.length === currentPaginationState.size) {
+          getChartData({
+            url,
+            responseCallback,
+            errorCallBack,
+            chartKey,
+            append: true,
+          });
+        }
+      } else {
+        setChartData((prev) => ({
+          ...prev,
+          [chartKey]: {
+            ...prev[chartKey],
+            loading: false,
+          },
+        }));
+      }
     } catch (error) {
       errorCallBack(error);
     } finally {
@@ -190,23 +224,33 @@ export const useChartData = () => {
   };
 
   const formatDataAgainstTime = (data) => {
-    let bottomAxesArray;
-    if (data?.summary)
-      bottomAxesArray = Object.keys(data?.summary[currentTimeFilter]);
-    else bottomAxesArray = Object.keys(data[currentTimeFilter]);
-
+    let bottomAxesArray = [];
+  
+    // Determine if we are working with a summary object or direct data
+    if (data?.summary && data?.summary[currentTimeFilter]) {
+      bottomAxesArray = Object.keys(data.summary[currentTimeFilter]);
+    } else if (data[currentTimeFilter]) {
+      bottomAxesArray = Object.keys(data[currentTimeFilter]);
+    }
+  
+    // Map the keys to create the formatted data array
     const formattedData = bottomAxesArray.map((item) => {
       const returnObject = {};
       returnObject[currentTimeFilter] = item;
-
+  
       let clients;
-      if (data?.summary) clients = data?.summary[currentTimeFilter][item];
-      else clients = data[currentTimeFilter][item];
+      if (data?.summary && data?.summary[currentTimeFilter]) {
+        clients = data.summary[currentTimeFilter][item];
+      } else if (data[currentTimeFilter]) {
+        clients = data[currentTimeFilter][item];
+      } else {
+        clients = []; // Default to an empty array if data is not available
+      }
+      
       returnObject["clients"] = clients;
-
       return returnObject;
     });
-
+  
     return formattedData;
   };
 
@@ -353,289 +397,482 @@ export const useChartData = () => {
   const getActiveClients = () =>
     getChartData({
       url: `/ws/rest/v1/ssemr/dashboard/activeClients?startDate=${time.startDate}&endDate=${time.endDate}`,
-      responseCallback: (data) =>
+      responseCallback: (data, append) => {
         setChartData((prev) => ({
           ...prev,
           activeClients: {
             ...prev.activeClients,
-            raw: data,
-            processedChartData: formatDataAgainstTime(data),
+            raw: append
+            ? Array.isArray(prev.activeClients.raw) && Array.isArray(data?.results) 
+              ? [...(prev.activeClients.raw || []), ...(data.results || [])]
+              : prev.activeClients.raw || []
+            : Array.isArray(data?.results) 
+              ? data
+              : [],
+            processedChartData: formatDataAgainstTime(
+              append
+                ? [...(Array.isArray(prev.activeClients.raw) ? prev.activeClients.raw : []), ...(Array.isArray(data?.results) ? data.results : [])]
+                : data
+            ),
           },
-        })),
+        }))
+      },
       errorCallBack: (error) => console.error("Error", error),
       chartKey: "activeClients",
+      append: false
     });
 
   const getAllClients = async () =>
     getChartData({
       url: `/ws/rest/v1/ssemr/dashboard/allClients?startDate=${time.startDate}&endDate=${time.endDate}`,
-      responseCallback: (data) =>
+      responseCallback: (data, append) =>
         setChartData((prev) => ({
           ...prev,
           allClients: {
             ...prev.allClients,
-            raw: data,
-            processedChartData: formatDataAgainstTime(data),
+            raw: append 
+            ? Array.isArray(prev.allClients.raw) && Array.isArray(data?.results) 
+              ? [...(prev.allClients.raw || []), ...(data.results || [])]
+              : prev.allClients.raw || []
+            : Array.isArray(data?.results)
+              ? data
+              : [],
+            processedChartData: formatDataAgainstTime(
+              append
+                ? [...(Array.isArray(prev.allClients.raw) ? prev.allClients.raw : []), ...(Array.isArray(data?.results) ? data.results : [])]
+                : data
+            ),
           },
         })),
       errorCallBack: (error) => console.error(error),
       chartKey: "allClients",
+      append: false
     });
 
   const getNewlyEnrolledClients = async () =>
     getChartData({
       url: `/ws/rest/v1/ssemr/dashboard/newClients?startDate=${time.startDate}&endDate=${time.endDate}`,
-      responseCallback: (data) =>
+      responseCallback: (data, append) => {
         setChartData((prev) => ({
           ...prev,
           newlyEnrolledClients: {
             ...prev.newlyEnrolledClients,
-            raw: data,
-            processedChartData: formatDataAgainstTime(data),
+            raw: append
+            ? Array.isArray(prev.newlyEnrolledClients.raw) && Array.isArray(data?.results)
+              ? [...(prev.newlyEnrolledClients.raw || []), ...(data.results || [])]
+              : prev.newlyEnrolledClients.raw || []
+            : Array.isArray(data?.results)
+              ? data
+              : [],
+            processedChartData: formatDataAgainstTime(
+              append
+                ? [...(Array.isArray(prev.newlyEnrolledClients.raw) ? prev.newlyEnrolledClients.raw : []), ...(Array.isArray(data?.results) ? data.results : [])]
+                : data
+            ),
           },
-        })),
+        }))},
       errorCallBack: (error) => console.error("Error", error),
       chartKey: "newlyEnrolledClients",
+      append: false
     });
 
   const getClientsOnAppointment = async () =>
     getChartData({
       url: `/ws/rest/v1/ssemr/dashboard/onAppointment?startDate=${time.startDate}&endDate=${time.endDate}`,
-      responseCallback: (data) =>
+      responseCallback: (data, append) =>
         setChartData((prev) => ({
           ...prev,
           onAppointment: {
             ...prev.onAppointment,
-            raw: data,
-            processedChartData: formatDataAgainstTime(data),
+            raw: append 
+            ? Array.isArray(prev.onAppointment.raw) && Array.isArray(data?.results)
+              ? [...(prev.onAppointment.raw || []), ...(data.results || [])]
+              : prev.onAppointment.raw || []
+            : Array.isArray(data?.results)
+              ? data
+              : [],
+            processedChartData: formatDataAgainstTime(
+              append
+                ? [...(Array.isArray(prev.onAppointment.raw) ? prev.onAppointment.raw : []), ...(Array.isArray(data?.results) ? data.results : [])]
+                : data
+            ),
           },
         })),
       errorCallBack: (error) => console.error("Error", error),
       chartKey: "onAppointment",
+      append: false
     });
 
   const getMissedAppointments = async () =>
     getChartData({
       url: `/ws/rest/v1/ssemr/dashboard/missedAppointment?startDate=${time.startDate}&endDate=${time.endDate}`,
-      responseCallback: (data) =>
+      responseCallback: (data, append) =>
         setChartData((prev) => ({
           ...prev,
           missedAppointment: {
             ...prev.missedAppointment,
-            raw: data,
-            processedChartData: formatDataAgainstTime(data),
+            raw: append
+            ? Array.isArray(prev.missedAppointment.raw) && Array.isArray(data?.results)
+              ? [...(prev.missedAppointment.raw || []), ...(data.results || [])]
+              : prev.missedAppointment.raw || []
+            : Array.isArray(data?.results)
+              ? data
+              : [],
+            processedChartData: formatDataAgainstTime(
+              append
+                ? [...(Array.isArray(prev.missedAppointment.raw) ? prev.missedAppointment.raw : []), ...(Array.isArray(data?.results) ? data.results : [])]
+                : data
+            ),
           },
         })),
       errorCallBack: (error) => console.error("Error", error),
       chartKey: "missedAppointment",
+      append: false
     });
 
   const getInterruptedTreatment = async () =>
     getChartData({
       url: `/ws/rest/v1/ssemr/dashboard/interruptedInTreatment?startDate=${time.startDate}&endDate=${time.endDate}`,
-      responseCallback: (data) =>
+      responseCallback: (data, append) =>
         setChartData((prev) => ({
           ...prev,
           interrupted: {
             ...prev.interrupted,
-            raw: data,
-            processedChartData: formatDataAgainstTime(data),
+            raw: append
+            ? Array.isArray(prev.interrupted.raw) && Array.isArray(data?.results)
+              ? [...(prev.interrupted.raw || []), ...(data.results || [])]
+              : prev.interrupted.raw || []
+            : Array.isArray(data?.results)
+              ? data
+              : [],
+            processedChartData: formatDataAgainstTime(
+              append
+                ? [...(Array.isArray(prev.interrupted.raw) ? prev.interrupted.raw : []), ...(Array.isArray(data?.results) ? data.results : [])]
+                : data
+            ),
           },
         })),
       errorCallBack: (error) => console.error("Error", error),
       chartKey: "interrupted",
+      append: false
     });
 
   const getReturnedToTreatment = async () =>
     getChartData({
       url: `/ws/rest/v1/ssemr/dashboard/returnedToTreatment?startDate=${time.startDate}&endDate=${time.endDate}`,
-      responseCallback: (data) =>
+      responseCallback: (data, append) =>
         setChartData((prev) => ({
           ...prev,
           returned: {
             ...prev.returned,
-            raw: data,
-            processedChartData: formatDataAgainstTime(data),
+            raw: append
+            ? Array.isArray(prev.returned.raw) && Array.isArray(data?.results)
+              ? [...(prev.returned.raw || []), ...(data.results || [])]
+              : prev.returned.raw || []
+            : Array.isArray(data?.results)
+              ? data
+              : [],
+            processedChartData: formatDataAgainstTime(
+              append
+                ? [...(Array.isArray(prev.returned.raw) ? prev.returned.raw : []), ...(Array.isArray(data?.results) ? data.results : [])]
+                : data
+            ),
           },
         })),
       errorCallBack: (error) => console.error("Error", error),
       chartKey: "returned",
+      append: false
     });
 
   const getDueForViralLoad = async () =>
     getChartData({
       url: `/ws/rest/v1/ssemr/dashboard/dueForVl?startDate=${time.startDate}&endDate=${time.endDate}`,
-      responseCallback: (data) =>
+      responseCallback: (data, append) =>
         setChartData((prev) => ({
           ...prev,
           dueForViralLoad: {
             ...prev.dueForViralLoad,
-            raw: data,
-            processedChartData: formatDataAgainstTime(data),
+            raw: append
+            ? Array.isArray(prev.dueForViralLoad.raw) && Array.isArray(data?.results)
+              ? [...(prev.dueForViralLoad.raw || []), ...(data.results || [])]
+              : prev.dueForViralLoad.raw || []
+            : Array.isArray(data?.results)
+              ? data
+              : [],
+            processedChartData: formatDataAgainstTime(
+              append
+                ? [...(Array.isArray(prev.dueForViralLoad.raw) ? prev.dueForViralLoad.raw : []), ...(Array.isArray(data?.results) ? data.results : [])]
+                : data
+            ),
           },
         })),
       errorCallBack: (error) => console.error("Error", error),
       chartKey: "dueForViralLoad",
+      append: false
     });
 
   const getViralLoadSamples = async () =>
     getChartData({
       url: `/ws/rest/v1/ssemr/dashboard/viralLoadSamplesCollected?startDate=${time.startDate}&endDate=${time.endDate}`,
-      responseCallback: (data) =>
+      responseCallback: (data, append) =>
         setChartData((prev) => ({
           ...prev,
           viralLoadSamples: {
             ...prev.viralLoadSamples,
-            raw: data,
-            processedChartData: formatDataAgainstTime(data),
+            raw: append
+            ? Array.isArray(prev.viralLoadSamples.raw) && Array.isArray(data?.results)
+              ? [...(prev.viralLoadSamples.raw || []), ...(data.results || [])]
+              : prev.viralLoadSamples.raw || []
+            : Array.isArray(data?.results)
+              ? data
+              : [],
+            processedChartData: formatDataAgainstTime(
+              append
+                ? [...(Array.isArray(prev.viralLoadSamples.raw) ? prev.viralLoadSamples.raw : []), ...(Array.isArray(data?.results) ? data.results : [])]
+                : data
+            ),
           },
         })),
       errorCallBack: (error) => console.error("Error", error),
       chartKey: "viralLoadSamples",
+      append: false
     });
 
   const getViralLoadResults = async () =>
     getChartData({
       url: `/ws/rest/v1/ssemr/dashboard/viralLoadResults?startDate=${time.startDate}&endDate=${time.endDate}`,
-      responseCallback: (data) =>
+      responseCallback: (data, append) =>
         setChartData((prev) => ({
           ...prev,
           viralLoadResults: {
             ...prev.viralLoadResults,
-            raw: data,
-            processedChartData: formatDataAgainstTime(data),
+            raw: append
+            ? Array.isArray(prev.viralLoadResults.raw) && Array.isArray(data?.results)
+              ? [...(prev.viralLoadResults.raw || []), ...(data.results || [])]
+              : prev.viralLoadResults.raw || []
+            : Array.isArray(data?.results)
+              ? data
+              : [],
+            processedChartData: formatDataAgainstTime(
+              append
+                ? [...(Array.isArray(prev.viralLoadResults.raw) ? prev.viralLoadResults.raw : []), ...(Array.isArray(data?.results) ? data.results : [])]
+                : data
+            ),
           },
         })),
       errorCallBack: (error) => console.error("Error", error),
       chartKey: "viralLoadResults",
+      append: false
     });
 
   const getHighViralLoad = async () =>
     getChartData({
       url: `/ws/rest/v1/ssemr/dashboard/highVl?startDate=${time.startDate}&endDate=${time.endDate}`,
-      responseCallback: (data) =>
+      responseCallback: (data, append) =>
         setChartData((prev) => ({
           ...prev,
           highViralLoad: {
             ...prev.highViralLoad,
-            raw: data,
-            processedChartData: formatDataAgainstTime(data),
+            raw: append
+            ? Array.isArray(prev.highViralLoad.raw) && Array.isArray(data?.results)
+              ? [...(prev.highViralLoad.raw || []), ...(data.results || [])]
+              : prev.highViralLoad.raw || []
+            : Array.isArray(data?.results)
+              ? data
+              : [],
+            processedChartData: formatDataAgainstTime(
+              append
+                ? [...(Array.isArray(prev.highViralLoad.raw) ? prev.highViralLoad.raw : []), ...(Array.isArray(data?.results) ? data.results : [])]
+                : data
+            ),
           },
         })),
       errorCallBack: (error) => console.error("Error", error),
       chartKey: "highViralLoad",
+      append: false
     });
 
   const getHighViralLoadCascade = async () =>
     getChartData({
       url: `/ws/rest/v1/ssemr/dashboard/viralLoadCascade?startDate=${viralLoadRange.start}&endDate=${viralLoadRange.end}`,
-      responseCallback: (data) =>
+      responseCallback: (data, append) =>
         setChartData((prev) => ({
           ...prev,
           highViralLoadCascade: {
             ...prev.highViralLoadCascade,
-            raw: data?.results,
-            processedChartData: data,
+            raw: append 
+            ? Array.isArray(prev.highViralLoadCascade.raw) && Array.isArray(data?.results)
+              ? [...(prev.highViralLoadCascade.raw || []), ...(data.results || [])]
+              : prev.highViralLoadCascade.raw || []
+            : Array.isArray(data?.results)
+              ? data
+              : [],
+            processedChartData: append
+              ? [...(Array.isArray(prev.highViralLoadCascade.raw) ? prev.highViralLoadCascade.raw : []), ...(Array.isArray(data?.results) ? data.results : [])]
+              : data?.results,
           },
         })),
       errorCallBack: (error) => console.error("Error", error),
       chartKey: "highViralLoadCascade",
+      append: false
     });
 
   const getAdultART = async () =>
     getChartData({
       url: `/ws/rest/v1/ssemr/dashboard/adultRegimenTreatment?startDate=${time.startDate}&endDate=${time.endDate}`,
-      responseCallback: (data) =>
+      responseCallback: (data, append) =>
         setChartData((prev) => ({
           ...prev,
           adultART: {
             ...prev.adultART,
-            raw: data,
-            processedChartData: data?.results,
+            raw: append
+            ? Array.isArray(prev.adultART.raw) && Array.isArray(data?.results)
+              ? [...(prev.adultART.raw || []), ...(data.results || [])]
+              : prev.adultART.raw || []
+            : Array.isArray(data?.results)
+              ? data
+              : [],
+            processedChartData: append
+              ? [...(Array.isArray(prev.adultART.raw) ? prev.adultART.raw : []), ...(Array.isArray(data?.results) ? data.results : [])]
+              : data?.results,
           },
         })),
       errorCallBack: (error) => console.error("Error", error),
       chartKey: "adultART",
+      append: false
     });
 
   const getChildART = async () =>
     getChartData({
       url: `/ws/rest/v1/ssemr/dashboard/childRegimenTreatment?startDate=${time.startDate}&endDate=${time.endDate}`,
-      responseCallback: (data) =>
+      responseCallback: (data, append) =>
         setChartData((prev) => ({
           ...prev,
           childART: {
             ...prev.childART,
-            raw: data,
-            processedChartData: data?.results,
+            raw: append
+            ? Array.isArray(prev.childART.raw) && Array.isArray(data?.results)
+              ? [...(prev.childART.raw || []), ...(data.results || [])]
+              : prev.childART.raw || []
+            : Array.isArray(data?.results)
+              ? data
+              : [],
+            processedChartData: append 
+              ? [...(Array.isArray(prev.childART.raw) ? prev.childART.raw : []), ...(Array.isArray(data?.results) ? data.results : [])]
+              : data?.results,
           },
         })),
       errorCallBack: (error) => console.error("Error", error),
       chartKey: "childART",
+      append: false
     });
 
   const getUnderCareOfCommunityProgram = async () =>
     getChartData({
       url: `/ws/rest/v1/ssemr/dashboard/underCareOfCommunityProgrammes?startDate=${time.startDate}&endDate=${time.endDate}`,
-      responseCallback: (data) =>
+      responseCallback: (data, append) =>
         setChartData((prev) => ({
           ...prev,
           underCareOfCommunityProgram: {
             ...prev.underCareOfCommunityProgram,
-            raw: data,
-            processedChartData: formatDataAgainstTime(data),
+            raw: append
+            ? Array.isArray(prev.underCareOfCommunityProgram.raw) && Array.isArray(data?.results)
+              ? [...(prev.underCareOfCommunityProgram.raw || []), ...(data.results || [])]
+              : prev.underCareOfCommunityProgram.raw || []
+            : Array.isArray(data?.results)
+              ? data
+              : [],
+            processedChartData: formatDataAgainstTime(
+              append
+                ? [...(Array.isArray(prev.underCareOfCommunityProgram.raw) ? prev.underCareOfCommunityProgram.raw : []), ...(Array.isArray(data?.results) ? data.results : [])]
+                : data
+            ),
           },
         })),
       errorCallBack: (error) => console.error("Error", error),
       chartKey: "underCareOfCommunityProgram",
+      append: false
     });
 
   const getViralLoadCoverage = async () =>
     getChartData({
       url: `/ws/rest/v1/ssemr/dashboard/viralLoadCoverage?startDate=${time.startDate}&endDate=${time.endDate}`,
-      responseCallback: (data) =>
+      responseCallback: (data, append) =>
         setChartData((prev) => ({
           ...prev,
           viralLoadCoverage: {
             ...prev.viralLoadCoverage,
-            raw: data,
-            processedChartData: formatDataAgainstTime(data),
+            raw: append
+            ? Array.isArray(prev.viralLoadCoverage.raw) && Array.isArray(data?.results)
+              ? [...(prev.viralLoadCoverage.raw || []), ...(data.results || [])]
+              : prev.viralLoadCoverage.raw || []
+            : Array.isArray(data?.results)
+              ? data
+              : [],
+            processedChartData: formatDataAgainstTime(
+              append
+                ? [...(Array.isArray(prev.viralLoadCoverage.raw) ? prev.viralLoadCoverage.raw : []), ...(Array.isArray(data?.results) ? data.results : [])]
+                : data
+            ),
           },
         })),
       errorCallBack: (error) => console.error("Error", error),
       chartKey: "viralLoadCoverage",
+      append: false
     });
 
   const getViralLoadSuppression = async () =>
     getChartData({
       url: `/ws/rest/v1/ssemr/dashboard/viralLoadSuppression?startDate=${time.startDate}&endDate=${time.endDate}`,
-      responseCallback: (data) =>
+      responseCallback: (data, append) =>
         setChartData((prev) => ({
           ...prev,
           viralLoadSuppression: {
             ...prev.viralLoadSuppression,
-            raw: data,
-            processedChartData: formatDataAgainstTime(data),
+            raw: append
+            ? Array.isArray(prev.viralLoadSuppression.raw) && Array.isArray(data?.results)
+              ? [...(prev.viralLoadSuppression.raw || []), ...(data.results || [])]
+              : prev.viralLoadSuppression.raw || []
+            : Array.isArray(data?.results)
+              ? data
+              : [],
+            processedChartData: formatDataAgainstTime(
+              append
+                ? [...(Array.isArray(prev.viralLoadSuppression.raw) ? prev.viralLoadSuppression.raw : []), ...(Array.isArray(data?.results) ? data.results : [])]
+                : data
+            ),
           },
         })),
       errorCallBack: (error) => console.error("Error", error),
       chartKey: "viralLoadSuppression",
+      append: false
     });
 
   const getWaterFallData = async () =>
     getChartData({
       url: `/ws/rest/v1/ssemr/dashboard/waterfallAnalysis?startDate=${waterFallDateRange.start}&endDate=${waterFallDateRange.end}`,
-      responseCallback: (data) =>
+      responseCallback: (data, append) =>
         setChartData((prev) => ({
           ...prev,
           waterfall: {
             ...prev.waterfall,
-            raw: data,
-            processedChartData: formatWaterfallData(data?.results),
+            raw: append 
+            ? Array.isArray(prev.waterfall.raw) && Array.isArray(data?.results)
+              ? [...(prev.waterfall.raw || []), ...(data.results || [])]
+              : prev.waterfall.raw || []
+            : Array.isArray(data?.results)
+              ? data?.results
+              : [],
+            processedChartData: formatWaterfallData(
+              append
+                ? [...(Array.isArray(prev.waterfall.raw) ? prev.waterfall.raw : []), ...(Array.isArray(data?.results) ? data.results : [])]
+                : data?.results
+            ),
           },
         })),
       errorCallBack: (error) => console.error("Error", error),
       chartKey: "waterfall",
+      append: false
     });
 
   const getStat = (dataSet) => {
@@ -755,7 +992,7 @@ export const useChartData = () => {
     {
       title: "On appointment",
       color: "#3271F4",
-      stat: getStat(chartData.onAppointment?.raw?.results),
+      stat: chartData.onAppointment?.raw?.results ? getStat(chartData.onAppointment?.raw?.results) : 0,
       results: filterStatData(chartData.onAppointment?.raw?.results),
       loading: chartData.onAppointment.loading,
       headers: defaultStatHeaders,
@@ -787,7 +1024,7 @@ export const useChartData = () => {
     {
       title: "Due for viral load",
       color: "#FF8503",
-      stat: getStat(chartData.dueForViralLoad?.raw?.results),
+      stat: chartData.dueForViralLoad?.raw?.results ? getStat(chartData.dueForViralLoad?.raw?.results) : 0,
       results: filterStatData(chartData.dueForViralLoad?.raw?.results),
       loading: chartData.dueForViralLoad.loading,
       headers: defaultStatHeaders,
@@ -795,7 +1032,7 @@ export const useChartData = () => {
     {
       title: "High viral load (>= 1000 copies/ml)",
       color: "#FF0000",
-      stat: getStat(chartData.highViralLoad?.raw?.results),
+      stat: chartData.highViralLoad?.raw?.results ? getStat(chartData.highViralLoad?.raw?.results) : 0,
       results: filterStatData(chartData.highViralLoad?.raw?.results),
       loading: chartData.highViralLoad.loading,
       headers: defaultStatHeaders,
