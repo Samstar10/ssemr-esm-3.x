@@ -82,21 +82,21 @@ export const chartRequestConfig = {
   highViralLoadCascade: {
     url: ({ time }) =>
       `/ws/rest/v1/ssemr/dashboard/viralLoadCascade?startDate=${time.startDate}&endDate=${time.endDate}`,
-    processor: (data) => data.results,
+    processor: (data) => data?.results,
     chartKey: "highViralLoadCascade",
     noPagination: true,
   },
   adultART: {
     url: ({ time }) =>
       `/ws/rest/v1/ssemr/dashboard/adultRegimenTreatment?startDate=${time.startDate}&endDate=${time.endDate}`,
-    processor: (data) => data.results,
+    processor: (data) => data?.results,
     chartKey: "adultART",
     noPagination: true,
   },
   childART: {
     url: ({ time }) =>
       `/ws/rest/v1/ssemr/dashboard/childRegimenTreatment?startDate=${time.startDate}&endDate=${time.endDate}`,
-    processor: (data) => data.results,
+    processor: (data) => data?.results,
     chartKey: "childART",
     noPagination: true,
   },

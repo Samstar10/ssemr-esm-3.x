@@ -108,19 +108,19 @@ export const usePatientListing = (initialCategory = "allClients") => {
     },
     ...(tabs[currentTab]?.id === "Died"
       ? [
-        {
-          name: "Date Died",
-          selector: (row) => row.datePatientDied,
-        },
-      ]
+          {
+            name: "Date Died",
+            selector: (row) => row.datePatientDied,
+          },
+        ]
       : []),
     ...(tabs[currentTab]?.id === "TAD"
       ? [
-        {
-          name: "Date Transferred Out",
-          selector: (row) => row.datePatientTransferredOut,
-        },
-      ]
+          {
+            name: "Date Transferred Out",
+            selector: (row) => row.datePatientTransferredOut,
+          },
+        ]
       : []),
     {
       name: "Next Appointment Date",
@@ -236,7 +236,7 @@ export const usePatientListing = (initialCategory = "allClients") => {
             ?.identifier?.toLowerCase()
             ?.includes(filterText.toLowerCase())
       )
-      .map((row, index) => ({ ...row, serialNumber: index + 1 }))
+      .map((row) => ({ ...row }))
       .sort((a, b) => {
         const dateA: any = parseDate(a.initiationDate);
         const dateB: any = parseDate(b.initiationDate);
@@ -247,6 +247,11 @@ export const usePatientListing = (initialCategory = "allClients") => {
 
         return dateB - dateA;
       });
+
+    filteredItems.forEach((row, index) => {
+      row.serialNumber = index + 1;
+    });
+
     setFilteredTableData(filteredItems);
     setResetPaginationToggle((prev) => !prev);
   }, [filterText, tableData]);

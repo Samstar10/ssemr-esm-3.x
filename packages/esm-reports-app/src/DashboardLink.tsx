@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { BrowserRouter, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import "./dashboardLink.css";
@@ -9,14 +9,37 @@ export interface DashboardLinkConfig {
 }
 
 export function DashboardExtension({
-  dashboardLinkConfig,
-}: {
+                                     dashboardLinkConfig,
+                                   }: {
   dashboardLinkConfig: DashboardLinkConfig;
 }) {
   const { t } = useTranslation();
   const { name, title } = dashboardLinkConfig;
   const location = useLocation();
   const spaBasePath = `${window.spaBase}/home`;
+
+  // State for logged-in location
+  const [loggedInLocation, setLoggedInLocation] = useState<string | null>(null);
+
+  // Fetch logged-in location from session API
+  useEffect(() => {
+    const fetchLoggedInLocation = async () => {
+      try {
+        const response = await fetch("/openmrs/ws/rest/v1/session");
+        if (response.ok) {
+          const data = await response.json();
+          const location = data?.sessionLocation?.uuid;
+          setLoggedInLocation(location);
+        } else {
+          console.error("Failed to fetch session location");
+        }
+      } catch (error) {
+        console.error("Error fetching session location:", error);
+      }
+    };
+
+    fetchLoggedInLocation();
+  }, []);
 
   const navLink = useMemo(() => {
     const pathArray = location.pathname.split("/home");
@@ -25,7 +48,12 @@ export function DashboardExtension({
   }, [location.pathname]);
 
   const baseUrl = `${window.location.protocol}//${window.location.host}`;
-  const reportsUrl = `${baseUrl}/openmrs/ssemrreports/reports.page`;
+  const reportsUrl = useMemo(() => {
+    // Append logged-in location to URL if available
+    return loggedInLocation
+      ? `${baseUrl}/openmrs/ssemrreports/reports.page?location=${loggedInLocation}`
+      : `${baseUrl}/openmrs/ssemrreports/reports.page`;
+  }, [baseUrl, loggedInLocation]);
 
   const handleClick = () => {
     const url = name === "reports" ? reportsUrl : `${spaBasePath}/${name}`;

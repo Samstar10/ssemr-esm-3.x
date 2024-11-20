@@ -1,6 +1,7 @@
 import React from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import ListsDashboard from "./views/client-lists.component";
+import { RouteProtectionComponent } from "@ssemr/esm-route-protection-app";
 
 const RootComponent: React.FC = () => {
   const patientListsBasename =
@@ -8,9 +9,11 @@ const RootComponent: React.FC = () => {
 
   return (
     <BrowserRouter basename={patientListsBasename}>
-      <Routes>
-        <Route path="/" element={<ListsDashboard />} />
-      </Routes>
+      <RouteProtectionComponent requiredPrivilege="View Dashboards And Reports">
+        <Routes>
+          <Route path="/" element={<ListsDashboard />} />
+        </Routes>
+      </RouteProtectionComponent>
     </BrowserRouter>
   );
 };

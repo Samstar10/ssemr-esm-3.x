@@ -1,6 +1,6 @@
 {
   "name": "@ssemr/esm-reports-dashboard",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "license": "MPL-2.0",
   "description": "Reports dashboard microfrontend for the OpenMRS SPA",
   "browser": "dist/ssemr-esm-reports-app.js",
@@ -66,5 +66,5 @@
       "^.+\\.tsx?$": "babel-jest"
     }
   },
-  "gitHead": "1fcfa4962c756ee4c62d6c3a70e09d525bdc706a"
+  "gitHead": "b73b45560441926fd747025a2206c17c079e3d5a"
 }
